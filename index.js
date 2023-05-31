@@ -1,6 +1,7 @@
 const express = require("express");
 const axios = require("axios");
 const mongoose = require("mongoose");
+const cron = require("node-cron");
 require("dotenv").config();
 
 // Connect to MongoDB
@@ -39,6 +40,15 @@ const transactionSchema = new mongoose.Schema({
 // Define the transaction model
 const Transaction = mongoose.model("Transaction", transactionSchema);
 
+// Define the Ethereum price schema
+const ethereumPriceSchema = new mongoose.Schema({
+  price: Number,
+  timestamp: Date,
+});
+
+// Define the Ethereum price model
+const EthereumPrice = mongoose.model("EthereumPrice", ethereumPriceSchema);
+
 // Create Express app
 const app = express();
 const port = 3000;
@@ -62,6 +72,23 @@ app.get("/api/transactions/:address", async (req, res) => {
   } catch (error) {
     console.error("Error:", error.message);
     res.status(500).json({ error: "An error occurred" });
+  }
+});
+
+// Define the Ethereum price fetching and storing task
+cron.schedule("*/10 * * * *", async () => {
+  try {
+    // Fetch Ethereum price from CoinGecko API
+    const response = await axios.get(
+      "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
+    );
+
+    // Store the Ethereum price in the database
+    const price = response.data.ethereum.usd;
+    const priceData = { price: price, timestamp: new Date() };
+    await EthereumPrice.create(priceData);
+  } catch (error) {
+    console.error("Error:", error.message);
   }
 });
 
