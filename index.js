@@ -92,6 +92,40 @@ cron.schedule("*/10 * * * *", async () => {
   }
 });
 
+// Define the API route
+app.get("/api/user/:address", async (req, res) => {
+  try {
+    const { address } = req.params;
+
+    // Fetch transactions from the database
+    const transactions = await Transaction.find({
+      $or: [{ from: address }, { to: address }],
+    });
+
+    // Calculate the current balance for the user
+    let balance = 0;
+    for (const transaction of transactions) {
+      if (transaction.from === address) {
+        balance -= parseFloat(transaction.value);
+      } else {
+        balance += parseFloat(transaction.value);
+      }
+    }
+
+    // Fetch the current price of Ether from CoinGecko API
+    const response = await axios.get(
+      "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
+    );
+    const price = response.data.ethereum.usd;
+
+    // Return the balance and price as the API response
+    res.json({ balance, price });
+  } catch (error) {
+    console.error("Error:", error.message);
+    res.status(500).json({ error: "An error occurred" });
+  }
+});
+
 // Start the server
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
